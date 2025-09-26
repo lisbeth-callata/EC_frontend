@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../Common/LoadingSpinner';
 
 const PrivateRoute = ({ children, requireAdmin = true }) => {
-  const { isAuthenticated, isAdmin, loading, user } = useAuth();
+  const { isAuthenticated, isAdmin, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {

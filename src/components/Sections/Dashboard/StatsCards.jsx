@@ -14,7 +14,7 @@ import {
   RequestPage,
   Assignment
 } from '@mui/icons-material';
-import { formatWeight, formatDate } from '../../../utils/helpers';
+import { formatWeight } from '../../../utils/helpers';
 
 const StatsCards = ({ stats, loading }) => {
   if (loading) {
@@ -82,12 +82,7 @@ const StatsCards = ({ stats, loading }) => {
     }
   ];
 
-  const getChangeColor = (change) => {
-    if (change > 0) return 'success';
-    if (change < 0) return 'error';
-    return 'default';
-  };
-
+ 
   const getChangeIcon = (change) => {
     if (change > 0) return '↗';
     if (change < 0) return '↘';

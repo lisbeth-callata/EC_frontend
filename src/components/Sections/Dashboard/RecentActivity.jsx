@@ -14,8 +14,7 @@ import {
   Recycling,
   CheckCircle,
   Pending,
-  Schedule,
-  PersonAdd
+  Schedule
 } from '@mui/icons-material';
 import { formatDate } from '../../../utils/helpers';
 
