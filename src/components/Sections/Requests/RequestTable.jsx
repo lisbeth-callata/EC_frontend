@@ -17,17 +17,16 @@ import {
   Edit,
   Delete,
   Assignment,
-  AssignmentTurnedIn,
   LocationOn
 } from '@mui/icons-material';
 import { formatDate, formatWeight, capitalize } from '../../../utils/helpers';
 
-const RequestTable = ({ 
-  requests, 
-  onEdit, 
-  onDelete, 
+const RequestTable = ({
+  requests,
+  onEdit,
+  onDelete,
   onAssign,
-  onViewLocation 
+  onViewLocation
 }) => {
   const getStatusColor = (status) => {
     switch (status) {
@@ -82,9 +81,9 @@ const RequestTable = ({
         </TableHead>
         <TableBody>
           {requests.map((request) => (
-            <TableRow 
+            <TableRow
               key={request.id}
-              sx={{ 
+              sx={{
                 '&:last-child td, &:last-child th': { border: 0 },
                 '&:hover': { backgroundColor: 'action.hover' }
               }}
@@ -116,8 +115,8 @@ const RequestTable = ({
               </TableCell>
               <TableCell>
                 <Tooltip title={request.address || 'Sin ubicación'} arrow>
-                  <IconButton 
-                    size="small" 
+                  <IconButton
+                    size="small"
                     onClick={() => onViewLocation(request)}
                     disabled={!request.address}
                   >
@@ -131,14 +130,14 @@ const RequestTable = ({
                 </Typography>
               </TableCell>
               <TableCell>
-                <Chip 
+                <Chip
                   label={capitalize(request.status?.toLowerCase() || 'PENDIENTE')}
                   color={getStatusColor(request.status)}
                   size="small"
                 />
               </TableCell>
               <TableCell>
-                <Chip 
+                <Chip
                   label={capitalize(request.assignmentStatus?.toLowerCase() || 'DISPONIBLE')}
                   color={getAssignmentColor(request.assignmentStatus)}
                   size="small"
@@ -158,34 +157,29 @@ const RequestTable = ({
               <TableCell>
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                   <Tooltip title="Editar solicitud">
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      size="small"
                       color="primary"
                       onClick={() => onEdit(request)}
                     >
                       <Edit />
                     </IconButton>
                   </Tooltip>
-                  
-                  <Tooltip title={
-                    request.assignmentStatus === 'AVAILABLE' 
-                      ? 'Asignar recolector' 
-                      : 'Gestionar asignación'
-                  }>
-                    <IconButton 
-                      size="small" 
+
+                  <Tooltip title="Asignar recolector disponible">
+                    <IconButton
+                      size="small"
                       color="info"
                       onClick={() => onAssign(request)}
+                      disabled={request.assignmentStatus !== 'AVAILABLE'}
                     >
-                      {request.assignmentStatus === 'COMPLETED' ? 
-                        <AssignmentTurnedIn /> : <Assignment />
-                      }
+                      <Assignment />
                     </IconButton>
                   </Tooltip>
-                  
+
                   <Tooltip title="Eliminar solicitud">
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      size="small"
                       color="error"
                       onClick={() => onDelete(request)}
                     >

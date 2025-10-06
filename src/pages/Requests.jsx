@@ -13,6 +13,7 @@ import MainLayout from '../components/Layout/MainLayout';
 import RequestTable from '../components/Sections/Requests/RequestTable';
 import RequestFilters from '../components/Sections/Requests/RequestFilters';
 import RequestModal from '../components/Sections/Requests/RequestModal';
+import QuickAssignModal from '../components/Sections/Requests/QuickAssignModal';
 import ConfirmationModal from '../components/Common/ConfirmationModal';
 import { adminService } from '../services/admin';
 
@@ -32,16 +33,21 @@ const Requests = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
 
+  // Estados para asignación rápida
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [availableCollectors, setAvailableCollectors] = useState([]);
+  const [assigning, setAssigning] = useState(false);
+
   // Cargar solicitudes
   const loadRequests = async (filters = {}) => {
     setLoading(true);
     setError('');
-    
+
     try {
       console.log('🔄 Loading requests with filters:', filters);
-      
+
       let response;
-      
+
       if (filters.searchTerm) {
         console.log('🔍 Searching requests with term:', filters.searchTerm);
         response = await adminService.searchRequests(filters.searchTerm);
@@ -49,9 +55,9 @@ const Requests = () => {
         console.log('📋 Getting all requests');
         response = await adminService.getAllRequests();
       }
-      
+
       console.log('✅ Requests loaded:', response.data);
-      
+
       let filteredRequests = response.data;
 
       // Aplicar filtros adicionales
@@ -69,13 +75,103 @@ const Requests = () => {
 
       setRequests(filteredRequests);
       console.log('📊 Filtered requests:', filteredRequests.length);
-      
+
     } catch (error) {
       console.error('❌ Error loading requests:', error);
       console.error('Error details:', error.response?.data);
       setError(`Error al cargar las solicitudes: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Función para manejar asignación rápida
+  const handleAssign = async (request) => {
+    console.log('🚀 Iniciando asignación rápida para:', request.code);
+    setSelectedRequest(request);
+
+    try {
+      // Cargar recolectores y solicitudes en paralelo
+      const [collectorsResponse, allRequestsResponse] = await Promise.all([
+        adminService.getAllCollectors(),
+        adminService.getAllRequests()
+      ]);
+
+      // Calcular qué recolectores tienen asignaciones activas
+      const collectorsWithActiveAssignments = new Set();
+
+      allRequestsResponse.data.forEach(req => {
+        if (req.assignedCollectorId &&
+          (req.assignmentStatus === 'PENDING' || req.assignmentStatus === 'IN_PROGRESS')) {
+          collectorsWithActiveAssignments.add(req.assignedCollectorId);
+        }
+      });
+
+      console.log('📊 Recolectores con asignaciones activas:', collectorsWithActiveAssignments);
+
+      //  Mostrar SOLO los recolectores disponibles
+      const availableCollectors = collectorsResponse.data
+        .filter(collector => {
+          const hasActiveAssignments = collectorsWithActiveAssignments.has(collector.id);
+          return !hasActiveAssignments;
+        })
+        .map(collector => ({
+          ...collector,
+          isActive: true, 
+          status: 'Disponible'
+        }));
+
+      console.log('📋 Recolectores DISPONIBLES:', availableCollectors);
+      console.log('👥 Total de recolectores disponibles:', availableCollectors.length);
+
+      setAvailableCollectors(availableCollectors);
+      setAssignModalOpen(true);
+
+    } catch (error) {
+      console.error('❌ Error cargando recolectores:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error al cargar recolectores',
+        severity: 'error'
+      });
+    }
+  };
+
+  // Función para confirmar la asignación
+  const handleQuickAssign = async (requestId, collectorId) => {
+    setAssigning(true);
+    try {
+      const collector = availableCollectors.find(c => c.id === collectorId);
+
+      if (!collector) {
+        throw new Error('Recolector no encontrado');
+      }
+
+      await adminService.assignRequestToCollector(requestId, {
+        collectorId: collectorId,
+        collectorName: `${collector.name} ${collector.lastname}`,
+        timeoutMinutes: 30
+      });
+
+      setSnackbar({
+        open: true,
+        message: `Solicitud asignada a ${collector.name} exitosamente`,
+        severity: 'success'
+      });
+
+      setAssignModalOpen(false);
+      setSelectedRequest(null);
+      loadRequests(); // Recargar solicitudes
+
+    } catch (error) {
+      console.error('❌ Error en asignación:', error);
+      setSnackbar({
+        open: true,
+        message: `Error al asignar: ${error.response?.data?.message || error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -119,32 +215,23 @@ const Requests = () => {
     try {
       console.log('✅ Confirming deletion of request:', selectedRequest.id);
       await adminService.deleteRequest(selectedRequest.id);
-      setSnackbar({ 
-        open: true, 
-        message: 'Solicitud eliminada correctamente', 
-        severity: 'success' 
+      setSnackbar({
+        open: true,
+        message: 'Solicitud eliminada correctamente',
+        severity: 'success'
       });
       loadRequests();
     } catch (error) {
       console.error('❌ Error deleting request:', error);
-      setSnackbar({ 
-        open: true, 
-        message: `Error al eliminar la solicitud: ${error.response?.data?.message || error.message}`, 
-        severity: 'error' 
+      setSnackbar({
+        open: true,
+        message: `Error al eliminar la solicitud: ${error.response?.data?.message || error.message}`,
+        severity: 'error'
       });
     } finally {
       setDeleteModalOpen(false);
       setSelectedRequest(null);
     }
-  };
-
-  const handleAssign = (request) => {
-    console.log('👤 Assigning request:', request);
-    setSnackbar({ 
-      open: true, 
-      message: 'Funcionalidad de asignación en desarrollo', 
-      severity: 'info' 
-    });
   };
 
   const handleViewLocation = (request) => {
@@ -155,10 +242,10 @@ const Requests = () => {
   };
 
   const handleSave = () => {
-    setSnackbar({ 
-      open: true, 
-      message: 'Solicitud guardada correctamente', 
-      severity: 'success' 
+    setSnackbar({
+      open: true,
+      message: 'Solicitud guardada correctamente',
+      severity: 'success'
     });
     loadRequests();
   };
@@ -169,17 +256,17 @@ const Requests = () => {
     try {
       const response = await adminService.getAllRequests();
       console.log('✅ Connection test successful:', response.data);
-      setSnackbar({ 
-        open: true, 
-        message: `Conexión exitosa. ${response.data.length} solicitudes cargadas.`, 
-        severity: 'success' 
+      setSnackbar({
+        open: true,
+        message: `Conexión exitosa. ${response.data.length} solicitudes cargadas.`,
+        severity: 'success'
       });
     } catch (error) {
       console.error('❌ Connection test failed:', error);
-      setSnackbar({ 
-        open: true, 
-        message: `Error de conexión: ${error.message}`, 
-        severity: 'error' 
+      setSnackbar({
+        open: true,
+        message: `Error de conexión: ${error.message}`,
+        severity: 'error'
       });
     }
   };
@@ -197,25 +284,25 @@ const Requests = () => {
               {requests.length} solicitudes encontradas
             </Typography>
           </Box>
-          
+
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               startIcon={<Refresh />}
               onClick={() => loadRequests()}
               disabled={loading}
             >
               Actualizar
             </Button>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               color="secondary"
               onClick={testConnection}
             >
               Probar Conexión
             </Button>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               startIcon={<Add />}
               onClick={() => setModalOpen(true)}
             >
@@ -241,9 +328,9 @@ const Requests = () => {
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
             <Box sx={{ mt: 1 }}>
-              <Button 
-                variant="outlined" 
-                size="small" 
+              <Button
+                variant="outlined"
+                size="small"
                 onClick={() => loadRequests()}
               >
                 Reintentar
@@ -281,6 +368,20 @@ const Requests = () => {
           onSave={handleSave}
         />
 
+        {/* Modal de asignación rápida */}
+        <QuickAssignModal
+          open={assignModalOpen}
+          onClose={() => {
+            setAssignModalOpen(false);
+            setSelectedRequest(null);
+            setAvailableCollectors([]);
+          }}
+          request={selectedRequest}
+          collectors={availableCollectors}
+          onAssign={handleQuickAssign}
+          assigning={assigning}
+        />
+
         <ConfirmationModal
           open={deleteModalOpen}
           onClose={() => {
@@ -301,8 +402,8 @@ const Requests = () => {
           autoHideDuration={6000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
         >
-          <Alert 
-            onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
             severity={snackbar.severity}
           >
             {snackbar.message}
