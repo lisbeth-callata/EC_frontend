@@ -1,18 +1,16 @@
 import api from './api';
 
+// En adminService.js - DEJAR SOLO UNA VERSIÓN de cada método:
+
 export const adminService = {
   // Dashboard
   getDashboardStats: () => api.get('/admin/dashboard'),
 
-  // SOLICITUDES - Endpoints corregidos según tu backend
+  // SOLICITUDES
   getAllRequests: () => api.get('/requests'),
   searchRequests: (term) => api.get(`/requests/search?term=${term}`),
   getRequestById: (id) => api.get(`/requests/${id}`),
-
-  // IMPORTANTE: Según tu backend, updateRequest usa PUT en /api/requests/{id}
   updateRequest: (id, data) => api.put(`/requests/${id}`, data),
-
-  // IMPORTANTE: Según tu backend, deleteRequest usa DELETE en /api/requests/{id}
   deleteRequest: (id) => api.delete(`/requests/${id}`),
 
   // Usuarios
@@ -31,16 +29,58 @@ export const adminService = {
   // RECOLECTORES
   getAllCollectors: () => api.get('/admin/users/role/ROLE_COLLECTOR'),
   getCollectorDetail: (id) => api.get(`/admin/users/${id}`),
-  getCollectorAssignments: (collectorId) => api.get(`/api/assignments/collector/${collectorId}`),
-  getCollectorStats: (collectorId) => api.get(`/api/collector/stats/${collectorId}`),
-  
+  getCollectorAssignments: (collectorId) => api.get(`/assignments/collector/${collectorId}`),
+
   // ASIGNACIONES
-  getAvailableRequests: () => api.get('/api/requests/available'),
-  assignRequestToCollector: (requestId, collectorData) => api.post(`/api/assignments/claim/${requestId}`, collectorData),
-  unassignRequest: (requestId) => api.post(`/api/assignments/release/${requestId}`),
-  completeRequest: (requestId) => api.post(`/api/assignments/complete/${requestId}`),
-  updateRequestStatus: (requestId, status, weight) => api.patch(`/api/collector/requests/${requestId}?status=${status}&weight=${weight}`),
+  getAvailableRequests: () => api.get('/requests/available'),
+  getAvailableRequestsForAssignment: () => api.get('/assignments/available'),
+  assignRequestToCollector: (requestId, collectorData) => 
+    api.post(`/assignments/claim/${requestId}`, collectorData),
+  unassignRequest: (requestId) => api.post(`/assignments/release/${requestId}`),
+  completeRequest: (requestId) => api.post(`/assignments/complete/${requestId}`),
+  updateRequestStatus: (requestId, status, weight) => 
+    api.patch(`/collector/requests/${requestId}?status=${status}&weight=${weight}`),
   
   // DASHBOARD RECOLECTOR
-  getCollectorDashboard: () => api.get('/api/collector/dashboard'),
+  getCollectorDashboard: () => api.get('/collector/dashboard'),
+
+  // Obtener estadísticas reales de recolectores (SOLO UNA VERSIÓN)
+  getCollectorRealStats: async (collectorId) => {
+    try {
+      const assignmentsResponse = await api.get(`/assignments/collector/${collectorId}`);
+      const assignments = assignmentsResponse.data || [];
+      
+      const totalAssignments = assignments.length;
+      const completedAssignments = assignments.filter(a => 
+        a.assignmentStatus === 'COMPLETED' || a.status === 'COLLECTED'
+      ).length;
+      
+      const totalWeight = assignments
+        .filter(a => a.weight)
+        .reduce((sum, a) => sum + a.weight, 0);
+      
+      const performance = totalAssignments > 0 
+        ? Math.round((completedAssignments / totalAssignments) * 100)
+        : 0;
+
+      return {
+        totalAssignments,
+        completedAssignments,
+        totalWeight: totalWeight || 0,
+        performance,
+        currentAssignments: assignments.filter(a => 
+          a.assignmentStatus === 'PENDING' || a.assignmentStatus === 'IN_PROGRESS'
+        ).length
+      };
+    } catch (error) {
+      console.error('Error getting collector stats:', error);
+      return {
+        totalAssignments: 0,
+        completedAssignments: 0,
+        totalWeight: 0,
+        performance: 0,
+        currentAssignments: 0
+      };
+    }
+  }
 };

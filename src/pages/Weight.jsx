@@ -23,6 +23,7 @@ const Weight = () => {
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [chartType, setChartType] = useState('bar');
+  const [allRequests, setAllRequests] = useState([]);
 
   // Cargar datos de peso
   const loadWeightData = useCallback(async () => {
@@ -32,22 +33,22 @@ const Weight = () => {
     try {
       console.log('🔄 Loading weight data...');
 
-      // Cargar datos de peso y estadísticas en paralelo
-      const [weightsResponse, statsResponse] = await Promise.all([
+      const [weightsResponse, statsResponse, requestsResponse] = await Promise.all([
         adminService.getUserWeights(),
-        adminService.getWeightStats()
+        adminService.getWeightStats(),
+        adminService.getAllRequests() 
       ]);
 
       console.log('✅ Weight data loaded:', weightsResponse.data);
-      console.log('✅ Stats loaded:', statsResponse.data);
+      console.log('✅ All requests loaded:', requestsResponse.data);
 
       // Ordenar datos por peso descendente
       const sortedData = weightsResponse.data.sort((a, b) => b.totalWeight - a.totalWeight);
       setWeightData(sortedData);
       setStats(statsResponse.data);
-
+      setAllRequests(requestsResponse.data); 
     } catch (error) {
-      console.error('❌ Error loading weight data:', error);
+      console.error('Error loading weight data:', error);
       setError(`Error al cargar los datos de peso: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
@@ -198,6 +199,7 @@ const Weight = () => {
               weightData={weightData}
               chartType={chartType}
               onChartTypeChange={setChartType}
+              allRequests={allRequests}
             />
 
             {/* Resumen adicional */}

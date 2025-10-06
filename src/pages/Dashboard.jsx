@@ -34,11 +34,10 @@ const Dashboard = () => {
       console.log('🔄 Loading dashboard data...');
       
       // Cargar múltiples datos en paralelo
-      const [requestsResponse, usersResponse, weightsResponse, statsResponse] = await Promise.all([
+      const [requestsResponse, usersResponse, weightsResponse] = await Promise.all([ // ✅ Quitado statsResponse
         adminService.getAllRequests(),
         adminService.getAllUsers(),
-        adminService.getUserWeights(),
-        adminService.getDashboardStats()
+        adminService.getUserWeights()
       ]);
       
       console.log('✅ Dashboard data loaded');

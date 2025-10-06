@@ -8,7 +8,6 @@ import {
 } from '@mui/material';
 import {
   LocationOn,
-  Directions,
   Schedule
 } from '@mui/icons-material';
 

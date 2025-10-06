@@ -9,7 +9,8 @@ import {
   Typography,
   Box,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Link
 } from '@mui/material';
 import { Recycling, Lock, Warning } from '@mui/icons-material';
 
@@ -19,60 +20,51 @@ const Login = () => {
     password: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loginError, setLoginError] = useState('');
+  const [networkError, setNetworkError] = useState(false);
   
   const { login, user, loading, error, clearError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirigir si ya está autenticado como admin
+  // Detectar si estamos en Vercel
+  const isVercel = window.location.hostname.includes('vercel.app');
+
+  // Redirigir si ya está autenticado
   useEffect(() => {
-    if (user && user.role === 'ROLE_ADMIN') {
+    if (user) {
       const from = location.state?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
     }
   }, [user, navigate, location]);
 
+  // Detectar errores de red
+  useEffect(() => {
+    if (error && (error.includes('conexión') || error.includes('Network'))) {
+      setNetworkError(true);
+    } else {
+      setNetworkError(false);
+    }
+  }, [error]); // ✅ Agregar error como dependencia
+
   // Limpiar error cuando se cambian los campos
   useEffect(() => {
-    if (error || loginError) {
+    if (error) {
       clearError();
-      setLoginError('');
     }
-  }, [credentials.username, credentials.password]);
+  }, [credentials.username, credentials.password]); // ✅ Solo estas dependencias
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setLoginError('');
+    setNetworkError(false);
 
-    try {
-      const result = await login(credentials.username, credentials.password);
-      
-      if (result.success) {
-        if (result.data.role === 'ROLE_ADMIN') {
-          navigate('/dashboard', { replace: true });
-        } else {
-          // Usuario no es administrador - cerrar sesión y mostrar error
-          await logoutNonAdmin();
-          setLoginError('Acceso restringido. Solo personal autorizado puede acceder al panel de administración.');
-        }
-      } else {
-        setLoginError(result.error);
-      }
-    } catch (error) {
-      setLoginError('Error en el servidor. Por favor, intenta nuevamente.');
-    } finally {
-      setIsSubmitting(false);
+    const result = await login(credentials.username, credentials.password);
+    
+    if (result.success) {
+      navigate('/dashboard', { replace: true });
     }
-  };
-
-  // Función para cerrar sesión de usuarios no administradores
-  const logoutNonAdmin = async () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUser');
-    // Forzar actualización del contexto
-    window.location.reload();
+    
+    setIsSubmitting(false);
   };
 
   const handleChange = (e) => {
@@ -82,7 +74,25 @@ const Login = () => {
     });
   };
 
-  // Si está cargando y hay un usuario, verificar si es admin
+  const testConnection = async () => {
+    try {
+      setIsSubmitting(true);
+      const response = await fetch('https://ec-backend-drg8.onrender.com/api/test/status');
+      if (response.ok) {
+        setNetworkError(false);
+        alert('✅ Conexión con el servidor exitosa');
+      } else {
+        setNetworkError(true);
+        alert('❌ Error de conexión con el servidor');
+      }
+    } catch (error) {
+      setNetworkError(true);
+      alert('❌ No se pudo conectar con el servidor');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <Container component="main" maxWidth="xs">
@@ -96,42 +106,8 @@ const Login = () => {
         }}>
           <CircularProgress size={60} />
           <Typography variant="h6" sx={{ mt: 2 }}>
-            Verificando acceso...
+            Cargando...
           </Typography>
-        </Box>
-      </Container>
-    );
-  }
-
-  // Si hay un usuario pero no es admin, mostrar mensaje de acceso denegado
-  if (user && user.role !== 'ROLE_ADMIN') {
-    return (
-      <Container component="main" maxWidth="sm">
-        <Box sx={{ 
-          mt: 8, 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center'
-        }}>
-          <Paper elevation={3} sx={{ p: 4, width: '100%', textAlign: 'center' }}>
-            <Warning color="error" sx={{ fontSize: 64, mb: 2 }} />
-            <Typography variant="h4" color="error" gutterBottom>
-              Acceso Denegado
-            </Typography>
-            <Typography variant="h6" gutterBottom>
-              Panel de Administración
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              No tienes permisos para acceder al panel de administración de EcoCollet.
-            </Typography>
-            <Button 
-              variant="contained" 
-              onClick={logoutNonAdmin}
-              sx={{ mt: 2 }}
-            >
-              Volver al Inicio
-            </Button>
-          </Paper>
         </Box>
       </Container>
     );
@@ -169,17 +145,44 @@ const Login = () => {
             Panel de Administración
           </Typography>
 
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
-            Acceso restringido al personal autorizado
-          </Typography>
+          {isVercel && (
+            <Alert severity="info" sx={{ width: '100%', mb: 2 }}>
+              <strong>Modo Vercel:</strong> Aplicación en entorno de producción
+            </Alert>
+          )}
 
-          {(error || loginError) && (
+          {networkError && (
             <Alert 
               severity="error" 
               sx={{ width: '100%', mb: 2 }}
-              icon={<Warning />}
+              action={
+                <Button 
+                  color="inherit" 
+                  size="small" 
+                  onClick={testConnection}
+                  disabled={isSubmitting}
+                >
+                  Probar Conexión
+                </Button>
+              }
             >
-              {error || loginError}
+              <Box>
+                <Typography fontWeight="bold">Error de conexión</Typography>
+                <Typography variant="body2">
+                  No se puede conectar con el servidor. Verifica:
+                </Typography>
+                <Typography variant="body2">
+                  • Tu conexión a internet
+                  • Que el servidor esté funcionando
+                  • La configuración CORS del backend
+                </Typography>
+              </Box>
+            </Alert>
+          )}
+
+          {error && !networkError && (
+            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+              {error}
             </Alert>
           )}
 
@@ -218,30 +221,31 @@ const Login = () => {
               disabled={isSubmitting}
               startIcon={isSubmitting ? <CircularProgress size={20} /> : <Lock />}
             >
-              {isSubmitting ? 'Verificando acceso...' : 'Iniciar Sesión'}
+              {isSubmitting ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </Button>
           </Box>
 
-          {/* Información de prueba SOLO para desarrollo */}
-          {process.env.NODE_ENV === 'development' && (
-            <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1, width: '100%' }}>
-              <Typography variant="body2" color="text.secondary" align="center">
-                <strong>Credenciales de prueba (Admin):</strong><br />
-                Usuario: admin@ecocollet.com<br />
-                Contraseña: admin123
-              </Typography>
-              <Typography variant="caption" color="text.secondary" align="center" display="block" sx={{ mt: 1 }}>
-                <strong>Nota:</strong> Solo usuarios con rol ADMIN pueden acceder
+          {/* Información de prueba */}
+          <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1, width: '100%' }}>
+            <Typography variant="body2" color="text.secondary" align="center">
+              <strong>Credenciales de prueba:</strong><br />
+              Usuario: admin@ecocollet.com<br />
+              Contraseña: admin123
+            </Typography>
+          </Box>
+
+          {/* Información de debug para Vercel */}
+          {isVercel && (
+            <Box sx={{ mt: 2, p: 2, backgroundColor: 'warning.light', borderRadius: 1, width: '100%' }}>
+              <Typography variant="caption" align="center">
+                <Warning sx={{ fontSize: 16, verticalAlign: 'middle' }} />
+                <strong> Debug Vercel:</strong> Si el login falla, verifica:
+                <br/>1. CORS configurado en el backend
+                <br/>2. Servidor backend funcionando
+                <br/>3. Variables de entorno en Vercel
               </Typography>
             </Box>
           )}
-        </Paper>
-
-        {/* Información de seguridad */}
-        <Paper elevation={1} sx={{ p: 2, mt: 2, width: '100%', textAlign: 'center' }}>
-          <Typography variant="caption" color="text.secondary">
-            🔒 Acceso seguro | Solo personal municipal autorizado
-          </Typography>
         </Paper>
       </Box>
     </Container>

@@ -18,7 +18,6 @@ import {
 import {
   Visibility,
   Assignment,
-  Directions,
   Phone,
   Email
 } from '@mui/icons-material';

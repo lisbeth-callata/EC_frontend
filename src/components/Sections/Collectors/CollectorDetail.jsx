@@ -28,32 +28,33 @@ import {
 } from '@mui/icons-material';
 import { formatDate, formatWeight } from '../../../utils/helpers';
 
-const CollectorDetail = ({ open, onClose, collector, assignments }) => {
+const CollectorDetail = ({ open, onClose, collector, assignments, stats = {} }) => {
   if (!collector) return null;
 
-  const stats = [
+  // SOLO UNA DEFINICIÓN de collectorStats
+  const collectorStats = [
     {
       icon: <Assignment />,
       label: 'Total Asignaciones',
-      value: collector.totalAssignments || 0,
+      value: stats.totalAssignments || 0,
       color: 'primary'
     },
     {
       icon: <CheckCircle />,
       label: 'Completadas',
-      value: collector.completedAssignments || 0,
+      value: stats.completedAssignments || 0,
       color: 'success'
     },
     {
       icon: <Scale />,
       label: 'Peso Total',
-      value: formatWeight(collector.totalWeight || 0),
+      value: formatWeight(stats.totalWeight || 0),
       color: 'warning'
     },
     {
       icon: <TrendingUp />,
       label: 'Rendimiento',
-      value: `${collector.performance || 0}%`,
+      value: `${stats.performance || 0}%`,
       color: 'info'
     }
   ];
@@ -120,7 +121,7 @@ const CollectorDetail = ({ open, onClose, collector, assignments }) => {
                 Estadísticas de Rendimiento
               </Typography>
               <Grid container spacing={2}>
-                {stats.map((stat, index) => (
+                {collectorStats.map((stat, index) => (
                   <Grid item xs={6} key={index}>
                     <Box sx={{ textAlign: 'center', p: 2 }}>
                       <Box sx={{ color: `${stat.color}.main`, mb: 1 }}>
@@ -139,11 +140,11 @@ const CollectorDetail = ({ open, onClose, collector, assignments }) => {
               
               <LinearProgress 
                 variant="determinate" 
-                value={collector.performance || 0}
+                value={stats.performance || 0}
                 sx={{ mt: 2, height: 10, borderRadius: 5 }}
                 color={
-                  (collector.performance || 0) >= 80 ? 'success' :
-                  (collector.performance || 0) >= 60 ? 'warning' : 'error'
+                  (stats.performance || 0) >= 80 ? 'success' :
+                  (stats.performance || 0) >= 60 ? 'warning' : 'error'
                 }
               />
             </Paper>
@@ -187,7 +188,7 @@ const CollectorDetail = ({ open, onClose, collector, assignments }) => {
                           secondary={
                             <Box>
                               <Typography variant="caption">
-                                {assignment.address}
+                                {assignment.addressUser || assignment.address}
                               </Typography>
                               <br />
                               <Typography variant="caption" color="text.secondary">

@@ -18,7 +18,6 @@ import {
   CheckCircle,
   Pending,
   Schedule,
-  Person,
   LocationOn
 } from '@mui/icons-material';
 import { formatDate, formatWeight } from '../../../utils/helpers';

@@ -13,7 +13,11 @@ import {
   BarChart,
   PieChart,
   ShowChart,
-  Analytics
+  Analytics,
+  LocationOn,
+  TrendingUp,
+  CalendarMonth,
+  RequestPage
 } from '@mui/icons-material';
 
 // Importar componentes de Chart.js
@@ -25,9 +29,11 @@ import {
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  LineElement,
+  PointElement
 } from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
+import { Bar, Pie, Line } from 'react-chartjs-2';
 
 // Registrar componentes de Chart.js
 ChartJS.register(
@@ -37,51 +43,149 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  LineElement,
+  PointElement
 );
 
-const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
-  // Preparar datos para gráfico de barras
-  const barChartData = {
-    labels: weightData.slice(0, 10).map(user => 
-      `${user.userName} ${user.userLastname}`.substring(0, 15) + '...'
+const RealCharts = ({ weightData, chartType, onChartTypeChange, allRequests = [] }) => {
+  
+  // 1. DATOS POR DISTRITOS (usando la nueva columna district)
+  const getDistrictStats = () => {
+    const districtMap = {};
+    
+    allRequests.forEach(request => {
+      if (request.district) {
+        const district = request.district;
+        const weight = request.weight || 0;
+        
+        if (districtMap[district]) {
+          districtMap[district].totalWeight += weight;
+          districtMap[district].requestCount += 1;
+          districtMap[district].totalUsers.add(request.userId);
+        } else {
+          districtMap[district] = {
+            totalWeight: weight,
+            requestCount: 1,
+            totalUsers: new Set([request.userId]),
+            districtName: district
+          };
+        }
+      }
+    });
+
+    // Convertir a array y ordenar por número de solicitudes (más activos primero)
+    return Object.values(districtMap)
+      .map(district => ({
+        ...district,
+        userCount: district.totalUsers.size
+      }))
+      .sort((a, b) => b.requestCount - a.requestCount) // Ordenar por solicitudes
+      .slice(0, 10); // Top 10 distritos
+  };
+
+  // 2. DATOS MENSUALES REALES
+  const getMonthlyStats = () => {
+    const monthlyData = {
+      weights: Array(12).fill(0),
+      requests: Array(12).fill(0),
+      users: Array(12).fill(0),
+      districts: Array(12).fill(0)
+    };
+
+    const userActivityPerMonth = new Map();
+    const districtActivityPerMonth = new Map();
+
+    allRequests.forEach(request => {
+      if (request.createdAt) {
+        const date = new Date(request.createdAt);
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        const userId = request.userId;
+        const district = request.district;
+        
+        // Solo considerar el año actual
+        if (year === new Date().getFullYear()) {
+          // Peso
+          monthlyData.weights[month] += request.weight || 0;
+          
+          // Solicitudes
+          monthlyData.requests[month] += 1;
+          
+          // Usuarios únicos por mes
+          const userMonthKey = `${year}-${month}`;
+          if (!userActivityPerMonth.has(userMonthKey)) {
+            userActivityPerMonth.set(userMonthKey, new Set());
+          }
+          userActivityPerMonth.get(userMonthKey).add(userId);
+          
+          // Distritos únicos por mes
+          const districtMonthKey = `${year}-${month}`;
+          if (!districtActivityPerMonth.has(districtMonthKey)) {
+            districtActivityPerMonth.set(districtMonthKey, new Set());
+          }
+          if (district) {
+            districtActivityPerMonth.get(districtMonthKey).add(district);
+          }
+        }
+      }
+    });
+
+    // Contar usuarios únicos por mes
+    userActivityPerMonth.forEach((users, monthKey) => {
+      const [year, month] = monthKey.split('-');
+      monthlyData.users[parseInt(month)] = users.size;
+    });
+
+    // Contar distritos únicos por mes
+    districtActivityPerMonth.forEach((districts, monthKey) => {
+      const [year, month] = monthKey.split('-');
+      monthlyData.districts[parseInt(month)] = districts.size;
+    });
+
+    return monthlyData;
+  };
+
+  const districtStats = getDistrictStats();
+  const monthlyStats = getMonthlyStats();
+  const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  // Gráfico de Barras - DISTRITOS MÁS ACTIVOS
+  const districtBarChartData = {
+    labels: districtStats.map(district => 
+      district.districtName.length > 12 
+        ? district.districtName.substring(0, 12) + '...' 
+        : district.districtName
     ),
     datasets: [
       {
-        label: 'Peso Recolectado (kg)',
-        data: weightData.slice(0, 10).map(user => user.totalWeight),
-        backgroundColor: [
-          'rgba(46, 125, 50, 0.8)',
-          'rgba(76, 175, 80, 0.8)',
-          'rgba(102, 187, 106, 0.8)',
-          'rgba(129, 199, 132, 0.8)',
-          'rgba(156, 204, 101, 0.8)',
-          'rgba(174, 213, 129, 0.8)',
-          'rgba(200, 230, 201, 0.8)',
-          'rgba(225, 245, 254, 0.8)',
-          'rgba(179, 229, 252, 0.8)',
-          'rgba(129, 212, 250, 0.8)'
-        ],
-        borderColor: [
-          'rgba(46, 125, 50, 1)',
-          'rgba(76, 175, 80, 1)',
-          'rgba(102, 187, 106, 1)',
-          'rgba(129, 199, 132, 1)',
-          'rgba(156, 204, 101, 1)',
-          'rgba(174, 213, 129, 1)',
-          'rgba(200, 230, 201, 1)',
-          'rgba(225, 245, 254, 1)',
-          'rgba(179, 229, 252, 1)',
-          'rgba(129, 212, 250, 1)'
-        ],
+        label: 'Solicitudes de Recolección',
+        data: districtStats.map(district => district.requestCount),
+        backgroundColor: 'rgba(25, 118, 210, 0.8)',
+        borderColor: 'rgba(25, 118, 210, 1)',
         borderWidth: 2,
         borderRadius: 8,
-        borderSkipped: false,
       },
+      {
+        label: 'Usuarios Activos',
+        data: districtStats.map(district => district.userCount),
+        backgroundColor: 'rgba(46, 125, 50, 0.8)',
+        borderColor: 'rgba(46, 125, 50, 1)',
+        borderWidth: 2,
+        borderRadius: 8,
+      },
+      {
+        label: 'Peso Recolectado (kg)',
+        data: districtStats.map(district => district.totalWeight),
+        backgroundColor: 'rgba(237, 108, 2, 0.8)',
+        borderColor: 'rgba(237, 108, 2, 1)',
+        borderWidth: 2,
+        borderRadius: 8,
+      }
     ],
   };
 
-  const barChartOptions = {
+  const districtBarChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -90,7 +194,7 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
       },
       title: {
         display: true,
-        text: 'Top 10 Usuarios por Peso Recolectado',
+        text: 'Top 10 Distritos con Mayor Actividad de Recolección',
         font: {
           size: 16,
           weight: 'bold'
@@ -99,7 +203,12 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
       tooltip: {
         callbacks: {
           label: function(context) {
-            return `Peso: ${context.parsed.y} kg`;
+            const datasetLabel = context.dataset.label || '';
+            const value = context.parsed.y;
+            if (datasetLabel.includes('Peso')) {
+              return `${datasetLabel}: ${value.toFixed(1)} kg`;
+            }
+            return `${datasetLabel}: ${value}`;
           }
         }
       }
@@ -109,51 +218,50 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
         beginAtZero: true,
         title: {
           display: true,
-          text: 'Peso (kg)'
-        },
-        ticks: {
-          callback: function(value) {
-            return value + ' kg';
-          }
+          text: 'Métricas de Actividad'
         }
       },
       x: {
         title: {
           display: true,
-          text: 'Usuarios'
+          text: 'Distritos'
         }
       }
     },
   };
 
-  // Preparar datos para gráfico circular
-  const pieChartData = {
-    labels: weightData.slice(0, 5).map(user => 
-      `${user.userName} ${user.userLastname}`.substring(0, 12) + '...'
+  // Gráfico Circular - DISTRIBUCIÓN POR DISTRITOS
+  const districtPieChartData = {
+    labels: districtStats.slice(0, 6).map(district => 
+      district.districtName.length > 10 
+        ? district.districtName.substring(0, 10) + '...' 
+        : district.districtName
     ),
     datasets: [
       {
-        data: weightData.slice(0, 5).map(user => user.totalWeight),
+        data: districtStats.slice(0, 6).map(district => district.requestCount),
         backgroundColor: [
+          'rgba(25, 118, 210, 0.8)',
           'rgba(46, 125, 50, 0.8)',
-          'rgba(76, 175, 80, 0.8)',
-          'rgba(102, 187, 106, 0.8)',
-          'rgba(156, 204, 101, 0.8)',
-          'rgba(174, 213, 129, 0.8)'
+          'rgba(237, 108, 2, 0.8)',
+          'rgba(156, 39, 176, 0.8)',
+          'rgba(0, 150, 136, 0.8)',
+          'rgba(244, 67, 54, 0.8)'
         ],
         borderColor: [
+          'rgba(25, 118, 210, 1)',
           'rgba(46, 125, 50, 1)',
-          'rgba(76, 175, 80, 1)',
-          'rgba(102, 187, 106, 1)',
-          'rgba(156, 204, 101, 1)',
-          'rgba(174, 213, 129, 1)'
+          'rgba(237, 108, 2, 1)',
+          'rgba(156, 39, 176, 1)',
+          'rgba(0, 150, 136, 1)',
+          'rgba(244, 67, 54, 1)'
         ],
         borderWidth: 2,
       },
     ],
   };
 
-  const pieChartOptions = {
+  const districtPieChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -166,7 +274,7 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
       },
       title: {
         display: true,
-        text: 'Distribución del Peso Recolectado (Top 5)',
+        text: 'Distribución de Solicitudes por Distrito (Top 6)',
         font: {
           size: 16,
           weight: 'bold'
@@ -177,39 +285,64 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
           label: function(context) {
             const total = context.dataset.data.reduce((a, b) => a + b, 0);
             const percentage = ((context.parsed / total) * 100).toFixed(1);
-            return `${context.label}: ${context.parsed} kg (${percentage}%)`;
+            return `${context.label}: ${context.parsed} solicitudes (${percentage}%)`;
           }
         }
       }
     },
   };
 
-  // Gráfico de progreso mensual (simulado)
-  const monthlyData = {
-    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+  // Gráfico de Línea - PROGRESO MENSUAL REAL
+  const monthlyLineChartData = {
+    labels: monthNames,
     datasets: [
       {
-        label: 'Peso Recolectado 2024',
-        data: [120, 190, 300, 500, 200, 300, 400, 480, 362, 550, 600, 750],
-        borderColor: 'rgba(46, 125, 50, 1)',
-        backgroundColor: 'rgba(46, 125, 50, 0.1)',
+        label: 'Solicitudes Mensuales',
+        data: monthlyStats.requests,
+        borderColor: 'rgba(25, 118, 210, 1)',
+        backgroundColor: 'rgba(25, 118, 210, 0.1)',
         borderWidth: 3,
         fill: true,
         tension: 0.4,
+        yAxisID: 'y',
       },
+      {
+        label: 'Usuarios Activos',
+        data: monthlyStats.users,
+        borderColor: 'rgba(46, 125, 50, 1)',
+        backgroundColor: 'rgba(46, 125, 50, 0.1)',
+        borderWidth: 2,
+        fill: false,
+        tension: 0.4,
+        yAxisID: 'y1',
+      },
+      {
+        label: 'Distritos Activos',
+        data: monthlyStats.districts,
+        borderColor: 'rgba(237, 108, 2, 1)',
+        backgroundColor: 'rgba(237, 108, 2, 0.1)',
+        borderWidth: 2,
+        fill: false,
+        tension: 0.4,
+        yAxisID: 'y1',
+      }
     ],
   };
 
-  const monthlyOptions = {
+  const monthlyLineChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
     plugins: {
       legend: {
         position: 'top',
       },
       title: {
         display: true,
-        text: 'Progreso Mensual de Recolección',
+        text: 'Evolución Mensual - Actividad del Sistema',
         font: {
           size: 16,
           weight: 'bold'
@@ -218,17 +351,33 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
     },
     scales: {
       y: {
-        beginAtZero: true,
+        type: 'linear',
+        display: true,
+        position: 'left',
         title: {
           display: true,
-          text: 'Peso (kg)'
-        }
+          text: 'Solicitudes'
+        },
+        beginAtZero: true
+      },
+      y1: {
+        type: 'linear',
+        display: true,
+        position: 'right',
+        title: {
+          display: true,
+          text: 'Usuarios/Distritos'
+        },
+        beginAtZero: true,
+        grid: {
+          drawOnChartArea: false,
+        },
       },
     },
   };
 
   const renderChart = () => {
-    if (weightData.length === 0) {
+    if (allRequests.length === 0) {
       return (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <Analytics sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
@@ -236,7 +385,24 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
             No hay datos para mostrar
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Los gráficos se mostrarán cuando haya datos de peso recolectado.
+            Los gráficos se mostrarán cuando haya solicitudes registradas.
+          </Typography>
+        </Box>
+      );
+    }
+
+    // Verificar si hay datos de distritos
+    const hasDistrictData = allRequests.some(request => request.district);
+    
+    if (!hasDistrictData && chartType !== 'monthly') {
+      return (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <LocationOn sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" gutterBottom>
+            Datos geográficos no disponibles
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Los gráficos de distritos requieren que las solicitudes tengan información de ubicación.
           </Typography>
         </Box>
       );
@@ -246,25 +412,21 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
       case 'bar':
         return (
           <Box sx={{ height: 400 }}>
-            <Bar data={barChartData} options={barChartOptions} />
+            <Bar data={districtBarChartData} options={districtBarChartOptions} />
           </Box>
         );
       
       case 'pie':
         return (
           <Box sx={{ height: 400 }}>
-            <Pie data={pieChartData} options={pieChartOptions} />
+            <Pie data={districtPieChartData} options={districtPieChartOptions} />
           </Box>
         );
       
       case 'monthly':
         return (
           <Box sx={{ height: 400 }}>
-            {/* Para gráfico de línea necesitaríamos importar Line */}
-            <Bar 
-              data={monthlyData} 
-              options={monthlyOptions}
-            />
+            <Line data={monthlyLineChartData} options={monthlyLineChartOptions} />
           </Box>
         );
       
@@ -272,35 +434,41 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
         return (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="body1" color="text.secondary">
-              Selecciona un tipo de gráfico para visualizar los datos.
+              Selecciona un tipo de análisis para visualizar los datos.
             </Typography>
           </Box>
         );
     }
   };
 
+  // Calcular estadísticas generales
+  const totalRequests = allRequests.length;
+  const activeDistricts = new Set(allRequests.map(req => req.district).filter(Boolean)).size;
+  const totalWeight = allRequests.reduce((sum, req) => sum + (req.weight || 0), 0);
+  const topDistrict = districtStats[0];
+
   return (
     <Paper sx={{ p: 3, mt: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h6" fontWeight="bold">
-          📊 Visualización de Datos
+          📊 Análisis Geográfico y Temporal
         </Typography>
         
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Tipo de gráfico</InputLabel>
+        <FormControl size="small" sx={{ minWidth: 220 }}>
+          <InputLabel>Tipo de análisis</InputLabel>
           <Select
             value={chartType}
-            label="Tipo de gráfico"
+            label="Tipo de análisis"
             onChange={(e) => onChartTypeChange(e.target.value)}
           >
             <MenuItem value="bar">
-              <BarChart sx={{ mr: 1 }} /> Gráfico de Barras
+              <BarChart sx={{ mr: 1 }} /> Distritos Más Activos
             </MenuItem>
             <MenuItem value="pie">
-              <PieChart sx={{ mr: 1 }} /> Gráfico Circular
+              <PieChart sx={{ mr: 1 }} /> Distribución por Distritos
             </MenuItem>
             <MenuItem value="monthly">
-              <ShowChart sx={{ mr: 1 }} /> Progreso Mensual
+              <CalendarMonth sx={{ mr: 1 }} /> Evolución Mensual
             </MenuItem>
             <MenuItem value="none">Sin gráfico</MenuItem>
           </Select>
@@ -311,46 +479,52 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange }) => {
         renderChart()
       ) : (
         <Box sx={{ textAlign: 'center', py: 4 }}>
-          <ShowChart sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          <TrendingUp sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
           <Typography variant="body1" color="text.secondary">
-            Selecciona un tipo de gráfico para visualizar los datos de peso.
+            Selecciona un tipo de análisis para visualizar los datos de recolección.
           </Typography>
         </Box>
       )}
 
       {/* Estadísticas rápidas debajo del gráfico */}
-      {weightData.length > 0 && chartType !== 'none' && (
+      {allRequests.length > 0 && chartType !== 'none' && (
         <Grid container spacing={2} sx={{ mt: 3 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <LocationOn color="primary" />
               <Typography variant="h6" color="primary" fontWeight="bold">
-                {weightData.length}
+                {activeDistricts}
               </Typography>
-              <Typography variant="body2">Usuarios Activos</Typography>
+              <Typography variant="body2">Distritos con Actividad</Typography>
             </Paper>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <RequestPage color="success" />
               <Typography variant="h6" color="success" fontWeight="bold">
-                {weightData.reduce((sum, user) => sum + user.totalWeight, 0).toFixed(1)} kg
+                {totalRequests}
+              </Typography>
+              <Typography variant="body2">Total Solicitudes</Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <BarChart color="warning" />
+              <Typography variant="h6" color="warning" fontWeight="bold">
+                {totalWeight.toFixed(0)} kg
               </Typography>
               <Typography variant="body2">Peso Total</Typography>
             </Paper>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h6" color="warning" fontWeight="bold">
-                {(weightData.reduce((sum, user) => sum + user.totalWeight, 0) / weightData.length).toFixed(1)} kg
-              </Typography>
-              <Typography variant="body2">Promedio por Usuario</Typography>
-            </Paper>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
+              <TrendingUp color="info" />
               <Typography variant="h6" color="info" fontWeight="bold">
-                {weightData[0]?.userName} {weightData[0]?.userLastname}
+                {topDistrict ? `${topDistrict.requestCount} solicitudes` : 'N/A'}
               </Typography>
-              <Typography variant="body2">Usuario Top</Typography>
+              <Typography variant="body2">
+                {topDistrict ? topDistrict.districtName : 'Distrito Líder'}
+              </Typography>
             </Paper>
           </Grid>
         </Grid>
