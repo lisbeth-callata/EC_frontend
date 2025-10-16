@@ -225,14 +225,6 @@ const Login = () => {
             </Button>
           </Box>
 
-          {/* Información de prueba */}
-          <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1, width: '100%' }}>
-            <Typography variant="body2" color="text.secondary" align="center">
-              <strong>Credenciales de prueba:</strong><br />
-              Usuario: admin@ecocollet.com<br />
-              Contraseña: admin123
-            </Typography>
-          </Box>
 
           {/* Información de debug para Vercel */}
           {isVercel && (

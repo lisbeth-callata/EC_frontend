@@ -33,10 +33,10 @@ const Assignments = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
-    
+
     try {
       console.log('🔄 Loading assignment data...');
-      
+
       const [collectorsResponse, requestsResponse, availableResponse] = await Promise.all([
         adminService.getAllCollectors(),
         adminService.getAllRequests(),
@@ -52,13 +52,13 @@ const Assignments = () => {
       setCollectors(enrichedCollectors);
       setAssignments(requestsResponse.data);
       setAvailableRequests(availableResponse.data);
-      
+
       // Seleccionar primer recolector activo por defecto
       const activeCollector = enrichedCollectors.find(c => c.isActive);
       if (activeCollector) {
         setSelectedCollector(activeCollector);
       }
-      
+
     } catch (error) {
       console.error('❌ Error loading assignment data:', error);
       setError(`Error al cargar los datos: ${error.response?.data?.message || error.message}`);
@@ -77,18 +77,18 @@ const Assignments = () => {
         collectorId: collectorId,
         collectorName: selectedCollector?.name
       });
-      
-      setSnackbar({ 
-        open: true, 
-        message: 'Solicitud asignada correctamente', 
-        severity: 'success' 
+
+      setSnackbar({
+        open: true,
+        message: 'Solicitud asignada correctamente',
+        severity: 'success'
       });
       loadData(); // Recargar datos
     } catch (error) {
-      setSnackbar({ 
-        open: true, 
-        message: `Error al asignar: ${error.response?.data?.message || error.message}`, 
-        severity: 'error' 
+      setSnackbar({
+        open: true,
+        message: `Error al asignar: ${error.response?.data?.message || error.message}`,
+        severity: 'error'
       });
     }
   };
@@ -96,17 +96,17 @@ const Assignments = () => {
   const handleUnassign = async (requestId) => {
     try {
       await adminService.unassignRequest(requestId);
-      setSnackbar({ 
-        open: true, 
-        message: 'Solicitud liberada correctamente', 
-        severity: 'success' 
+      setSnackbar({
+        open: true,
+        message: 'Solicitud liberada correctamente',
+        severity: 'success'
       });
       loadData();
     } catch (error) {
-      setSnackbar({ 
-        open: true, 
-        message: `Error al liberar: ${error.response?.data?.message || error.message}`, 
-        severity: 'error' 
+      setSnackbar({
+        open: true,
+        message: `Error al liberar: ${error.response?.data?.message || error.message}`,
+        severity: 'error'
       });
     }
   };
@@ -114,24 +114,24 @@ const Assignments = () => {
   const handleComplete = async (requestId) => {
     try {
       await adminService.completeRequest(requestId);
-      setSnackbar({ 
-        open: true, 
-        message: 'Solicitud completada correctamente', 
-        severity: 'success' 
+      setSnackbar({
+        open: true,
+        message: 'Solicitud completada correctamente',
+        severity: 'success'
       });
       loadData();
     } catch (error) {
-      setSnackbar({ 
-        open: true, 
-        message: `Error al completar: ${error.response?.data?.message || error.message}`, 
-        severity: 'error' 
+      setSnackbar({
+        open: true,
+        message: `Error al completar: ${error.response?.data?.message || error.message}`,
+        severity: 'error'
       });
     }
   };
 
   const getCollectorAssignments = () => {
     if (!selectedCollector) return [];
-    return assignments.filter(assignment => 
+    return assignments.filter(assignment =>
       assignment.assignedCollectorId === selectedCollector.id
     );
   };
@@ -149,7 +149,7 @@ const Assignments = () => {
               Asignación y seguimiento de solicitudes a recolectores
             </Typography>
           </Box>
-          
+
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             <FormControl size="small" sx={{ minWidth: 200 }}>
               <InputLabel>Seleccionar Recolector</InputLabel>
@@ -171,9 +171,9 @@ const Assignments = () => {
                 ))}
               </Select>
             </FormControl>
-            
-            <Button 
-              variant="outlined" 
+
+            <Button
+              variant="outlined"
               startIcon={<Refresh />}
               onClick={() => loadData()}
               disabled={loading}
@@ -188,9 +188,9 @@ const Assignments = () => {
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
             <Box sx={{ mt: 1 }}>
-              <Button 
-                variant="outlined" 
-                size="small" 
+              <Button
+                variant="outlined"
+                size="small"
                 onClick={() => loadData()}
               >
                 Reintentar
@@ -212,7 +212,8 @@ const Assignments = () => {
             {/* Mapa y solicitudes disponibles */}
             <Grid item xs={12} lg={6}>
               <AssignmentMap
-                assignments={availableRequests}
+                assignments={availableRequests} 
+                availableRequests={availableRequests} 
                 selectedAssignment={selectedAssignment}
                 onAssignmentSelect={setSelectedAssignment}
               />
@@ -280,8 +281,8 @@ const Assignments = () => {
           autoHideDuration={6000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
         >
-          <Alert 
-            onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
             severity={snackbar.severity}
           >
             {snackbar.message}
