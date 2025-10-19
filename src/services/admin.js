@@ -1,17 +1,79 @@
 import api from './api';
 
-// En adminService.js - DEJAR SOLO UNA VERSIÓN de cada método:
-
 export const adminService = {
   // Dashboard
   getDashboardStats: () => api.get('/admin/dashboard'),
 
-  // SOLICITUDES
+  // SOLICITUDES 
   getAllRequests: () => api.get('/requests'),
   searchRequests: (term) => api.get(`/requests/search?term=${term}`),
   getRequestById: (id) => api.get(`/requests/${id}`),
-  updateRequest: (id, data) => api.put(`/requests/${id}`, data),
   deleteRequest: (id) => api.delete(`/requests/${id}`),
+  
+  // CREAR SOLICITUD 
+  createRequest: async (requestData, userId) => {
+    console.log('📤 Enviando solicitud al backend...');
+    console.log('📋 Datos recibidos:', requestData);
+    console.log('👤 User ID:', userId);
+    
+    const requestPayload = {
+      material: requestData.material,
+      description: requestData.description || '',
+      latitude: requestData.latitude,
+      longitude: requestData.longitude,
+      address: requestData.address,
+      district: requestData.district || '',
+      province: requestData.province || '',
+      region: requestData.region || '',
+      addressUser: requestData.addressUser || '',
+      reference: requestData.reference || '',
+      status: 'PENDING',
+      assignmentStatus: 'AVAILABLE'
+    };
+
+    if (!requestPayload.material) {
+      throw new Error('El material es requerido');
+    }
+    if (!requestPayload.latitude || !requestPayload.longitude) {
+      throw new Error('La ubicación es requerida');
+    }
+    if (!requestPayload.address) {
+      throw new Error('La dirección es requerida');
+    }
+
+    console.log('🎯 Payload normalizado:', requestPayload);
+    console.log('🔗 URL:', `/requests?userId=${userId}`);
+
+    try {
+      const response = await api.post(`/requests?userId=${userId}`, requestPayload);
+      console.log('✅ Solicitud creada exitosamente:', response.data);
+      return response;
+    } catch (error) {
+      console.error('❌ Error en createRequest:', error);
+      console.error('📋 Error response:', error.response?.data);
+      throw error;
+    }
+  },
+
+  // ACTUALIZAR SOLICITUD
+  updateRequest: (id, data) => {
+    const updatePayload = {
+      material: data.material,
+      description: data.description || '',
+      latitude: data.latitude,
+      longitude: data.longitude,
+      address: data.address,
+      district: data.district || '',
+      province: data.province || '',
+      region: data.region || '',
+      addressUser: data.addressUser || '',
+      reference: data.reference || '',
+      status: data.status || 'PENDING',
+      weight: data.weight || null
+    };
+    
+    return api.put(`/requests/${id}`, updatePayload);
+  },
 
   // Usuarios
   getAllUsers: () => api.get('/admin/users'),
@@ -44,7 +106,6 @@ export const adminService = {
   // DASHBOARD RECOLECTOR
   getCollectorDashboard: () => api.get('/collector/dashboard'),
 
-  // Obtener estadísticas reales de recolectores (SOLO UNA VERSIÓN)
   getCollectorRealStats: async (collectorId) => {
     try {
       const assignmentsResponse = await api.get(`/assignments/collector/${collectorId}`);
