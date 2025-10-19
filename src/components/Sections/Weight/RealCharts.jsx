@@ -12,7 +12,6 @@ import {
 import {
   BarChart,
   PieChart,
-  ShowChart,
   Analytics,
   LocationOn,
   TrendingUp,
@@ -133,13 +132,13 @@ const RealCharts = ({ weightData, chartType, onChartTypeChange, allRequests = []
 
     // Contar usuarios únicos por mes
     userActivityPerMonth.forEach((users, monthKey) => {
-      const [year, month] = monthKey.split('-');
+      const [month] = monthKey.split('-');
       monthlyData.users[parseInt(month)] = users.size;
     });
 
     // Contar distritos únicos por mes
     districtActivityPerMonth.forEach((districts, monthKey) => {
-      const [year, month] = monthKey.split('-');
+      const [month] = monthKey.split('-');
       monthlyData.districts[parseInt(month)] = districts.size;
     });
 

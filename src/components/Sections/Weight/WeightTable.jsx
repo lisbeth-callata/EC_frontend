@@ -15,7 +15,6 @@ import {
 } from '@mui/material';
 import {
   Scale,
-  TrendingUp,
   EmojiEvents,
   Recycling
 } from '@mui/icons-material';

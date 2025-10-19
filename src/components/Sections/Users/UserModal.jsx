@@ -193,7 +193,7 @@ const UserModal = ({ open, onClose, user, onSave }) => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label={user ? "Nueva Contraseña (dejar vacío para no cambiar)" : "Contraseña"}
+                label={user ? "Nueva Contraseña" : "Contraseña"}
                 type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={(e) => handleChange('password', e.target.value)}

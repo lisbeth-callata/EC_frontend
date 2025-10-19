@@ -9,8 +9,7 @@ import {
   Typography,
   Box,
   Alert,
-  CircularProgress,
-  Link
+  CircularProgress
 } from '@mui/material';
 import { Recycling, Lock, Warning } from '@mui/icons-material';
 
@@ -21,7 +20,7 @@ const Login = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [networkError, setNetworkError] = useState(false);
-  
+
   const { login, user, loading, error, clearError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -51,7 +50,7 @@ const Login = () => {
     if (error) {
       clearError();
     }
-  }, [credentials.username, credentials.password]); // ✅ Solo estas dependencias
+  }, [credentials.username, credentials.password, error, clearError]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -59,11 +58,11 @@ const Login = () => {
     setNetworkError(false);
 
     const result = await login(credentials.username, credentials.password);
-    
+
     if (result.success) {
       navigate('/dashboard', { replace: true });
     }
-    
+
     setIsSubmitting(false);
   };
 
@@ -96,10 +95,10 @@ const Login = () => {
   if (loading) {
     return (
       <Container component="main" maxWidth="xs">
-        <Box sx={{ 
-          mt: 8, 
-          display: 'flex', 
-          flexDirection: 'column', 
+        <Box sx={{
+          mt: 8,
+          display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: '60vh'
@@ -140,7 +139,7 @@ const Login = () => {
               EcoCollet
             </Typography>
           </Box>
-          
+
           <Typography component="h2" variant="h5" gutterBottom>
             Panel de Administración
           </Typography>
@@ -152,13 +151,13 @@ const Login = () => {
           )}
 
           {networkError && (
-            <Alert 
-              severity="error" 
+            <Alert
+              severity="error"
               sx={{ width: '100%', mb: 2 }}
               action={
-                <Button 
-                  color="inherit" 
-                  size="small" 
+                <Button
+                  color="inherit"
+                  size="small"
                   onClick={testConnection}
                   disabled={isSubmitting}
                 >
@@ -224,17 +223,15 @@ const Login = () => {
               {isSubmitting ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </Button>
           </Box>
-
-
           {/* Información de debug para Vercel */}
           {isVercel && (
             <Box sx={{ mt: 2, p: 2, backgroundColor: 'warning.light', borderRadius: 1, width: '100%' }}>
               <Typography variant="caption" align="center">
                 <Warning sx={{ fontSize: 16, verticalAlign: 'middle' }} />
                 <strong> Debug Vercel:</strong> Si el login falla, verifica:
-                <br/>1. CORS configurado en el backend
-                <br/>2. Servidor backend funcionando
-                <br/>3. Variables de entorno en Vercel
+                <br />1. CORS configurado en el backend
+                <br />2. Servidor backend funcionando
+                <br />3. Variables de entorno en Vercel
               </Typography>
             </Box>
           )}

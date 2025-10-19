@@ -11,9 +11,12 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Card,
+  CardContent,
+  Chip
 } from '@mui/material';
-import { Refresh, Assignment, Directions } from '@mui/icons-material';
+import { Refresh, Assignment, Directions, Schedule, CheckCircle } from '@mui/icons-material';
 import MainLayout from '../components/Layout/MainLayout';
 import AssignmentMap from '../components/Sections/Collectors/AssignmentMap';
 import AssignmentManager from '../components/Sections/Collectors/AssignmentManager';
@@ -136,13 +139,26 @@ const Assignments = () => {
     );
   };
 
+  // Calcular estadísticas
+  const getStats = () => {
+    return {
+      disponibles: availableRequests.length,
+      pendientes: assignments.filter(a => a.assignmentStatus === 'PENDING').length,
+      enProgreso: assignments.filter(a => a.assignmentStatus === 'IN_PROGRESS').length,
+      completadas: assignments.filter(a => a.assignmentStatus === 'COMPLETED').length
+    };
+  };
+
+  const stats = getStats();
+
   return (
     <MainLayout>
       <Box sx={{ flexGrow: 1 }}>
         {/* Header de la página */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
           <Box>
-            <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
+            <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Assignment color="primary" />
               Gestión de Asignaciones
             </Typography>
             <Typography variant="body1" color="text.secondary">
@@ -177,6 +193,7 @@ const Assignments = () => {
               startIcon={<Refresh />}
               onClick={() => loadData()}
               disabled={loading}
+              size="large"
             >
               Actualizar
             </Button>
@@ -185,7 +202,7 @@ const Assignments = () => {
 
         {/* Mensaje de error */}
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ mb: 3 }}>
             {error}
             <Box sx={{ mt: 1 }}>
               <Button
@@ -199,28 +216,81 @@ const Assignments = () => {
           </Alert>
         )}
 
+        {/* Estadísticas rápidas - MEJOR DISEÑO */}
+        {!loading && (
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ textAlign: 'center', p: 2, backgroundColor: 'info.light', color: 'white', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-2px)' } }}>
+                <CardContent sx={{ p: '8px !important' }}>
+                  <Assignment sx={{ fontSize: 30, mb: 1 }} />
+                  <Typography variant="h4" fontWeight="bold">
+                    {stats.disponibles}
+                  </Typography>
+                  <Typography variant="body2">Disponibles</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ textAlign: 'center', p: 2, backgroundColor: 'warning.light', color: 'white', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-2px)' } }}>
+                <CardContent sx={{ p: '8px !important' }}>
+                  <Schedule sx={{ fontSize: 30, mb: 1 }} />
+                  <Typography variant="h4" fontWeight="bold">
+                    {stats.pendientes}
+                  </Typography>
+                  <Typography variant="body2">Pendientes</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ textAlign: 'center', p: 2, backgroundColor: 'primary.light', color: 'white', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-2px)' } }}>
+                <CardContent sx={{ p: '8px !important' }}>
+                  <Directions sx={{ fontSize: 30, mb: 1 }} />
+                  <Typography variant="h4" fontWeight="bold">
+                    {stats.enProgreso}
+                  </Typography>
+                  <Typography variant="body2">En Progreso</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ textAlign: 'center', p: 2, backgroundColor: 'success.light', color: 'white', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-2px)' } }}>
+                <CardContent sx={{ p: '8px !important' }}>
+                  <CheckCircle sx={{ fontSize: 30, mb: 1 }} />
+                  <Typography variant="h4" fontWeight="bold">
+                    {stats.completadas}
+                  </Typography>
+                  <Typography variant="body2">Completadas</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        )}
+
         {/* Contenido principal */}
         {loading ? (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <CircularProgress />
-            <Typography variant="body1" sx={{ mt: 2 }}>
+          <Paper sx={{ p: 4, textAlign: 'center' }} elevation={2}>
+            <CircularProgress size={60} />
+            <Typography variant="h6" sx={{ mt: 2 }}>
               Cargando datos de asignaciones...
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Esto puede tomar unos segundos
             </Typography>
           </Paper>
         ) : (
-          <Grid container spacing={3}>
-            {/* Mapa y solicitudes disponibles */}
-            <Grid item xs={12} lg={6}>
+          <Grid container spacing={3} sx={{ width: '100%' }}>
+            {/* Mapa y solicitudes disponibles - 7 COLUMNAS */}
+            <Grid item xs={12} lg={7} sx={{ width: '100%' }}>
               <AssignmentMap
-                assignments={availableRequests} 
+                assignments={getCollectorAssignments()} 
                 availableRequests={availableRequests} 
                 selectedAssignment={selectedAssignment}
                 onAssignmentSelect={setSelectedAssignment}
               />
             </Grid>
 
-            {/* Gestor de asignaciones */}
-            <Grid item xs={12} lg={6}>
+            {/* Gestor de asignaciones - 5 COLUMNAS */}
+            <Grid item xs={12} lg={5} sx={{ width: '100%' }}>
               <AssignmentManager
                 collector={selectedCollector}
                 assignments={getCollectorAssignments()}
@@ -233,46 +303,26 @@ const Assignments = () => {
           </Grid>
         )}
 
-        {/* Estadísticas rápidas */}
-        {!loading && (
-          <Grid container spacing={2} sx={{ mt: 2 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'info.light', color: 'white' }}>
-                <Assignment sx={{ fontSize: 30 }} />
-                <Typography variant="h5" fontWeight="bold">
-                  {availableRequests.length}
+        {/* Información del recolector seleccionado */}
+        {selectedCollector && !loading && (
+          <Paper sx={{ p: 2, mt: 3, backgroundColor: 'primary.light', color: 'white' }} elevation={1}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="subtitle1" fontWeight="bold">
+                  Recolector Seleccionado: {selectedCollector.name} {selectedCollector.lastname}
                 </Typography>
-                <Typography variant="body2">Disponibles</Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.light', color: 'white' }}>
-                <Directions sx={{ fontSize: 30 }} />
-                <Typography variant="h5" fontWeight="bold">
-                  {assignments.filter(a => a.assignmentStatus === 'PENDING').length}
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  {selectedCollector.email} • {selectedCollector.phone || 'Sin teléfono'}
                 </Typography>
-                <Typography variant="body2">Pendientes</Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.light', color: 'white' }}>
-                <Directions sx={{ fontSize: 30 }} />
-                <Typography variant="h5" fontWeight="bold">
-                  {assignments.filter(a => a.assignmentStatus === 'IN_PROGRESS').length}
-                </Typography>
-                <Typography variant="body2">En Progreso</Typography>
-              </Paper>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light', color: 'white' }}>
-                <Assignment sx={{ fontSize: 30 }} />
-                <Typography variant="h5" fontWeight="bold">
-                  {assignments.filter(a => a.assignmentStatus === 'COMPLETED').length}
-                </Typography>
-                <Typography variant="body2">Completadas</Typography>
-              </Paper>
-            </Grid>
-          </Grid>
+              </Box>
+              <Chip
+                label={`${getCollectorAssignments().length} asignaciones activas`}
+                color="secondary"
+                variant="filled"
+                sx={{ color: 'white', fontWeight: 'bold' }}
+              />
+            </Box>
+          </Paper>
         )}
 
         {/* Snackbar para notificaciones */}
@@ -280,10 +330,12 @@ const Assignments = () => {
           open={snackbar.open}
           autoHideDuration={6000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
           <Alert
             onClose={() => setSnackbar({ ...snackbar, open: false })}
             severity={snackbar.severity}
+            sx={{ width: '100%' }}
           >
             {snackbar.message}
           </Alert>

@@ -6,7 +6,6 @@ import {
   Paper,
   Alert,
   Snackbar,
-  CircularProgress,
   Button
 } from '@mui/material';
 import { Refresh, Warning } from '@mui/icons-material';

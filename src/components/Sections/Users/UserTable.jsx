@@ -21,7 +21,7 @@ import {
   Phone,
   Recycling
 } from '@mui/icons-material';
-import { formatDate, capitalize } from '../../../utils/helpers';
+import { formatDate } from '../../../utils/helpers';
 
 const UserTable = ({ 
   users, 
