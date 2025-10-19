@@ -6,9 +6,10 @@ import {
   Paper,
   Alert,
   Snackbar,
-  Button
+  Button,
+  CircularProgress
 } from '@mui/material';
-import { Refresh, Warning } from '@mui/icons-material';
+import { Refresh, Warning } from '@mui/icons-material'; // Removido Download
 import MainLayout from '../components/Layout/MainLayout';
 import StatsCards from '../components/Sections/Dashboard/StatsCards';
 import RecentActivity from '../components/Sections/Dashboard/RecentActivity';
@@ -22,6 +23,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [exporting, setExporting] = useState(false);
   const navigate = useNavigate();
 
   // Cargar datos del dashboard
@@ -32,8 +34,7 @@ const Dashboard = () => {
     try {
       console.log('🔄 Loading dashboard data...');
       
-      // Cargar múltiples datos en paralelo
-      const [requestsResponse, usersResponse, weightsResponse] = await Promise.all([ // ✅ Quitado statsResponse
+      const [requestsResponse, usersResponse, weightsResponse] = await Promise.all([
         adminService.getAllRequests(),
         adminService.getAllUsers(),
         adminService.getUserWeights()
@@ -41,19 +42,16 @@ const Dashboard = () => {
       
       console.log('✅ Dashboard data loaded');
 
-      // Procesar estadísticas
       const allRequests = requestsResponse.data;
       const allUsers = usersResponse.data;
       const weightData = weightsResponse.data;
       
-      // Solicitudes recientes (últimas 20)
       const recent = allRequests
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .slice(0, 20);
       
       setRecentRequests(recent);
 
-      // Calcular métricas del dashboard
       const totalWeight = weightData.reduce((sum, user) => sum + (user.totalWeight || 0), 0);
       const today = new Date().toISOString().split('T')[0];
       const todayRequests = allRequests.filter(req => 
@@ -68,21 +66,18 @@ const Dashboard = () => {
         ((allRequests.filter(req => req.status === 'COLLECTED').length / allRequests.length) * 100) : 0;
 
       const dashboardStats = {
-        // Datos básicos
         totalRequests: allRequests.length,
         todayRequests: todayRequests,
         totalUsers: allUsers.length,
         totalWeight: totalWeight,
         pendingRequests: pendingRequests,
         efficiency: efficiency.toFixed(1),
-
-        // Cambios porcentuales (simulados para el ejemplo)
-        requestsChange: 12, // +12% vs mes anterior
-        todayChange: -5,    // -5% vs ayer
-        usersChange: 8,     // +8% vs mes anterior
-        weightChange: 15,   // +15% vs mes anterior
-        pendingChange: -3,  // -3% vs ayer
-        efficiencyChange: 2 // +2% vs mes anterior
+        requestsChange: 12,
+        todayChange: -5,
+        usersChange: 8,
+        weightChange: 15,
+        pendingChange: -3,
+        efficiencyChange: 2
       };
 
       setStats(dashboardStats);
@@ -128,36 +123,243 @@ const Dashboard = () => {
     }
   };
 
-  const generateReport = () => {
+  const generateReport = async () => {
     setSnackbar({ 
       open: true, 
-      message: 'Generando reporte mensual...', 
+      message: '🔄 Generando reporte mensual...', 
       severity: 'info' 
     });
-    // Simular generación de reporte
-    setTimeout(() => {
+
+    try {
+      const reportData = {
+        fechaGeneracion: new Date().toISOString(),
+        periodo: `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`,
+        estadisticas: {
+          totalSolicitudes: stats.totalRequests || 0,
+          solicitudesEsteMes: stats.todayRequests || 0,
+          totalUsuarios: stats.totalUsers || 0,
+          pesoTotal: stats.totalWeight || 0,
+          solicitudesPendientes: stats.pendingRequests || 0,
+          eficiencia: stats.efficiency || 0
+        },
+        topUsuarios: recentRequests.slice(0, 5).map(req => ({
+          usuario: `${req.userName} ${req.userLastname}`,
+          material: req.material,
+          peso: req.weight || 0,
+          fecha: req.createdAt
+        })),
+        actividadReciente: recentRequests.slice(0, 10).map(req => ({
+          codigo: req.code,
+          estado: req.status,
+          fecha: req.createdAt
+        }))
+      };
+
+      const reportContent = `
+REPORTE MENSUAL ECOCOLLET
+=========================
+
+Fecha de generación: ${new Date().toLocaleDateString('es-ES')}
+Período: ${reportData.periodo}
+
+ESTADÍSTICAS PRINCIPALES
+------------------------
+• Total de solicitudes: ${reportData.estadisticas.totalSolicitudes}
+• Solicitudes este mes: ${reportData.estadisticas.solicitudesEsteMes}
+• Usuarios registrados: ${reportData.estadisticas.totalUsuarios}
+• Peso total recolectado: ${reportData.estadisticas.pesoTotal} kg
+• Solicitudes pendientes: ${reportData.estadisticas.solicitudesPendientes}
+• Eficiencia del sistema: ${reportData.estadisticas.eficiencia}%
+
+TOP 5 USUARIOS
+--------------
+${reportData.topUsuarios.map((user, index) => 
+  `${index + 1}. ${user.usuario} - ${user.material} (${user.peso} kg)`
+).join('\n')}
+
+ACTIVIDAD RECIENTE
+------------------
+${reportData.actividadReciente.map(act => 
+  `• ${act.codigo} - ${act.estado} - ${new Date(act.fecha).toLocaleDateString()}`
+).join('\n')}
+
+RESUMEN EJECUTIVO
+-----------------
+El sistema ha procesado ${reportData.estadisticas.totalSolicitudes} solicitudes 
+con una eficiencia del ${reportData.estadisticas.eficiencia}%. Se han recolectado 
+${reportData.estadisticas.pesoTotal} kg de materiales reciclables.
+
+© ${new Date().getFullYear()} EcoCollet - Sistema de Gestión de Reciclaje
+      `;
+
+      const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte-ecocollet-${reportData.periodo}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
       setSnackbar({ 
         open: true, 
-        message: 'Reporte generado correctamente', 
+        message: 'Reporte generado y descargado correctamente', 
         severity: 'success' 
       });
-    }, 2000);
+
+    } catch (error) {
+      console.error('Error generando reporte:', error);
+      setSnackbar({ 
+        open: true, 
+        message: '❌ Error al generar el reporte', 
+        severity: 'error' 
+      });
+    }
   };
 
-  const exportData = () => {
+  const exportData = async () => {
+    setExporting(true);
     setSnackbar({ 
       open: true, 
-      message: 'Exportando datos del sistema...', 
+      message: '📊 Preparando exportación completa a Excel...', 
       severity: 'info' 
     });
-    // Simular exportación
-    setTimeout(() => {
+
+    try {
+      const { utils, writeFile } = await import('xlsx');
+
+      const [usersResponse, requestsResponse, weightsResponse] = await Promise.all([
+        adminService.getAllUsers(),
+        adminService.getAllRequests(),
+        adminService.getUserWeights()
+      ]);
+
+      const users = usersResponse.data;
+      const requests = requestsResponse.data;
+      const weights = weightsResponse.data;
+
+      const exportDate = new Date().toISOString().split('T')[0];
+      
+      const workbook = utils.book_new();
+
+      const usersData = [
+        ['ID', 'Nombre', 'Apellido', 'Email', 'Teléfono', 'Rol', 'Fecha Registro', 'Total Solicitudes', 'Peso Total (kg)'],
+        ...users.map(user => {
+          const userWeight = weights.find(w => w.userId === user.id);
+          const userRequests = requests.filter(req => req.userId === user.id);
+          
+          return [
+            user.id,
+            user.name,
+            user.lastname,
+            user.email,
+            user.phone || 'N/A',
+            user.role,
+            new Date(user.createdAt).toLocaleDateString(),
+            userRequests.length,
+            userWeight ? userWeight.totalWeight : '0'
+          ];
+        })
+      ];
+
+      const usersSheet = utils.aoa_to_sheet(usersData);
+      utils.book_append_sheet(workbook, usersSheet, 'Usuarios');
+
+      const requestsData = [
+        ['Código', 'Usuario', 'Email Usuario', 'Material', 'Descripción', 'Estado', 'Estado Asignación', 'Peso (kg)', 
+         'Fecha Creación', 'Fecha Actualización', 'Dirección', 'Distrito', 'Provincia', 'Región',
+         'Recolector Asignado', 'Fecha Asignación'],
+        ...requests.map(req => [
+          req.code,
+          `${req.userName} ${req.userLastname}`,
+          req.userEmail,
+          req.material,
+          req.description || 'N/A',
+          req.status,
+          req.assignmentStatus || 'N/A',
+          req.weight || '0',
+          new Date(req.createdAt).toLocaleDateString(),
+          req.updatedAt ? new Date(req.updatedAt).toLocaleDateString() : 'N/A',
+          req.address || 'N/A',
+          req.district || 'N/A',
+          req.province || 'N/A',
+          req.region || 'N/A',
+          req.assignedCollectorName || 'No asignado',
+          req.assignedAt ? new Date(req.assignedAt).toLocaleDateString() : 'N/A'
+        ])
+      ];
+
+      const requestsSheet = utils.aoa_to_sheet(requestsData);
+      utils.book_append_sheet(workbook, requestsSheet, 'Solicitudes');
+
+      const weightsData = [
+        ['Ranking', 'Usuario', 'Email', 'Total Solicitudes', 'Peso Total (kg)', 'Promedio por Solicitud'],
+        ...weights
+          .sort((a, b) => b.totalWeight - a.totalWeight)
+          .map((weight, index) => [
+            index + 1,
+            `${weight.userName} ${weight.userLastname}`,
+            weight.userEmail,
+            weight.totalRequests,
+            weight.totalWeight,
+            weight.totalRequests > 0 ? (weight.totalWeight / weight.totalRequests).toFixed(2) : '0'
+          ])
+      ];
+
+      const weightsSheet = utils.aoa_to_sheet(weightsData);
+      utils.book_append_sheet(workbook, weightsSheet, 'Pesos y Estadísticas');
+
+      const today = new Date().toISOString().split('T')[0];
+      const todayRequests = requests.filter(req => 
+        req.createdAt && req.createdAt.split('T')[0] === today
+      ).length;
+
+      const pendingRequests = requests.filter(req => req.status === 'PENDING').length;
+      const collectedRequests = requests.filter(req => req.status === 'COLLECTED').length;
+      const totalWeight = weights.reduce((sum, w) => sum + w.totalWeight, 0);
+
+      const summaryData = [
+        ['RESUMEN GENERAL ECOCOLLET'],
+        ['Fecha de exportación:', new Date().toLocaleDateString('es-ES')],
+        [''],
+        ['ESTADÍSTICAS PRINCIPALES'],
+        ['Total de usuarios:', users.length],
+        ['Total de solicitudes:', requests.length],
+        ['Solicitudes hoy:', todayRequests],
+        ['Solicitudes pendientes:', pendingRequests],
+        ['Solicitudes recolectadas:', collectedRequests],
+        ['Peso total recolectado:', `${totalWeight.toFixed(1)} kg`],
+        ['Eficiencia del sistema:', `${((collectedRequests / requests.length) * 100).toFixed(1)}%`],
+        [''],
+        ['USUARIO TOP'],
+        ['Nombre:', weights[0] ? `${weights[0].userName} ${weights[0].userLastname}` : 'N/A'],
+        ['Peso recolectado:', weights[0] ? `${weights[0].totalWeight} kg` : 'N/A'],
+        ['Total solicitudes:', weights[0] ? weights[0].totalRequests : 'N/A']
+      ];
+
+      const summarySheet = utils.aoa_to_sheet(summaryData);
+      utils.book_append_sheet(workbook, summarySheet, 'Resumen');
+
+      // Generar y descargar el archivo Excel
+      writeFile(workbook, `datos-completos-ecocollet-${exportDate}.xlsx`);
+
       setSnackbar({ 
         open: true, 
-        message: 'Datos exportados correctamente', 
+        message: `Excel generado con 4 pestañas: ${users.length} usuarios, ${requests.length} solicitudes y ${weights.length} registros de peso`, 
         severity: 'success' 
       });
-    }, 1500);
+
+    } catch (error) {
+      console.error('Error exportando datos a Excel:', error);
+      setSnackbar({ 
+        open: true, 
+        message: '❌ Error al generar el archivo Excel', 
+        severity: 'error' 
+      });
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleRefresh = () => {
@@ -167,7 +369,6 @@ const Dashboard = () => {
   return (
     <MainLayout>
       <Box sx={{ flexGrow: 1 }}>
-        {/* Header del dashboard */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
@@ -188,7 +389,6 @@ const Dashboard = () => {
           </Button>
         </Box>
 
-        {/* Mensaje de error */}
         {error && (
           <Alert 
             severity="error" 
@@ -207,10 +407,8 @@ const Dashboard = () => {
           </Alert>
         )}
 
-        {/* Tarjetas de estadísticas */}
         <StatsCards stats={stats} loading={loading} />
 
-        {/* Contenido secundario */}
         <Grid container spacing={3} sx={{ mt: 1 }}>
           <Grid item xs={12} lg={8}>
             <RecentActivity recentRequests={recentRequests} loading={loading} />
@@ -219,7 +417,18 @@ const Dashboard = () => {
           <Grid item xs={12} lg={4}>
             <QuickActions onActionClick={handleActionClick} />
             
-            {/* Panel de alertas */}
+            {/* Indicador de exportación */}
+            {exporting && (
+              <Paper sx={{ p: 2, mt: 2, bgcolor: 'info.light', color: 'white' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={20} color="inherit" />
+                  <Typography variant="body2">
+                    Generando archivo Excel...
+                  </Typography>
+                </Box>
+              </Paper>
+            )}
+            
             <Paper sx={{ p: 3, mt: 3, bgcolor: 'warning.light', color: 'warning.contrastText' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Warning />
@@ -245,7 +454,6 @@ const Dashboard = () => {
               )}
             </Paper>
 
-            {/* Resumen rápido */}
             <Paper sx={{ p: 3, mt: 3 }}>
               <Typography variant="h6" gutterBottom fontWeight="bold">
                 Resumen Rápido
@@ -266,10 +474,9 @@ const Dashboard = () => {
           </Grid>
         </Grid>
 
-        {/* Snackbar para notificaciones */}
         <Snackbar
           open={snackbar.open}
-          autoHideDuration={4000}
+          autoHideDuration={6000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
         >
           <Alert 
@@ -283,5 +490,4 @@ const Dashboard = () => {
     </MainLayout>
   );
 };
-
 export default Dashboard;

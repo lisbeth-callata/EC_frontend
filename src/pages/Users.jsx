@@ -36,62 +36,15 @@ const Users = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  // Cargar usuarios - OPTIMIZADO
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      console.log('🔄 Loading users...');
-      
-      // Cargar usuarios y solicitudes en paralelo para mayor velocidad
-      const [usersResponse, requestsResponse] = await Promise.all([
-        adminService.getAllUsers(),
-        adminService.getAllRequests()
-      ]);
-      
-      console.log('✅ Users loaded:', usersResponse.data);
-      console.log('✅ Requests loaded:', requestsResponse.data);
 
-      // Enriquecer usuarios con información de solicitudes (más eficiente)
-      const usersWithRequests = usersResponse.data.map(user => {
-        const userRequests = requestsResponse.data.filter(
-          request => request.userId === user.id
-        );
-        return {
-          ...user,
-          requests: userRequests,
-          requestsCount: userRequests.length
-        };
-      });
-      
-      setUsers(usersWithRequests);
-      applyFilters(usersWithRequests, activeTab, searchTerm, roleFilter, statusFilter);
-      
-    } catch (error) {
-      console.error('❌ Error loading users:', error);
-      if (error.code === 'ECONNABORTED') {
-        setError('El servidor está tardando mucho en responder. Por favor, intenta nuevamente.');
-      } else {
-        setError(`Error al cargar los usuarios: ${error.response?.data?.message || error.message}`);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [activeTab, searchTerm, roleFilter, statusFilter]);
-
-  // Aplicar filtros
   const applyFilters = useCallback((usersList, tab, search, role, status) => {
     let filtered = [...usersList];
-
-    // Filtro por pestaña
-    if (tab === 1) { // Usuarios activos (con solicitudes)
+    if (tab === 1) {
       filtered = filtered.filter(user => user.requestsCount > 0);
-    } else if (tab === 2) { // Usuarios inactivos (sin solicitudes)
+    } else if (tab === 2) {
       filtered = filtered.filter(user => user.requestsCount === 0);
     }
 
-    // Filtro por búsqueda
     if (search) {
       const searchLower = search.toLowerCase();
       filtered = filtered.filter(user =>
@@ -102,13 +55,10 @@ const Users = () => {
         (user.phone && user.phone.includes(search))
       );
     }
-
-    // Filtro por rol
     if (role) {
       filtered = filtered.filter(user => user.role === role);
     }
 
-    // Filtro por estado de actividad
     if (status === 'active') {
       filtered = filtered.filter(user => user.requestsCount > 0);
     } else if (status === 'inactive') {
@@ -117,6 +67,46 @@ const Users = () => {
 
     setFilteredUsers(filtered);
   }, []);
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      console.log('🔄 Loading users...');
+
+      const [usersResponse, requestsResponse] = await Promise.all([
+        adminService.getAllUsers(),
+        adminService.getAllRequests()
+      ]);
+
+      console.log('✅ Users loaded:', usersResponse.data);
+      console.log('✅ Requests loaded:', requestsResponse.data);
+
+      const usersWithRequests = usersResponse.data.map(user => {
+        const userRequests = requestsResponse.data.filter(
+          request => request.userId === user.id
+        );
+        return {
+          ...user,
+          requests: userRequests,
+          requestsCount: userRequests.length
+        };
+      });
+
+      setUsers(usersWithRequests);
+      applyFilters(usersWithRequests, activeTab, searchTerm, roleFilter, statusFilter);
+
+    } catch (error) {
+      console.error('❌ Error loading users:', error);
+      if (error.code === 'ECONNABORTED') {
+        setError('El servidor está tardando mucho en responder. Por favor, intenta nuevamente.');
+      } else {
+        setError(`Error al cargar los usuarios: ${error.response?.data?.message || error.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, searchTerm, roleFilter, statusFilter, applyFilters]);
 
   useEffect(() => {
     loadUsers();
@@ -161,18 +151,18 @@ const Users = () => {
     try {
       console.log('✅ Confirming deletion of user:', selectedUser.id);
       await adminService.deleteUser(selectedUser.id);
-      setSnackbar({ 
-        open: true, 
-        message: 'Usuario eliminado correctamente', 
-        severity: 'success' 
+      setSnackbar({
+        open: true,
+        message: 'Usuario eliminado correctamente',
+        severity: 'success'
       });
       loadUsers();
     } catch (error) {
       console.error('❌ Error deleting user:', error);
-      setSnackbar({ 
-        open: true, 
-        message: `Error al eliminar el usuario: ${error.response?.data?.message || error.message}`, 
-        severity: 'error' 
+      setSnackbar({
+        open: true,
+        message: `Error al eliminar el usuario: ${error.response?.data?.message || error.message}`,
+        severity: 'error'
       });
     } finally {
       setDeleteModalOpen(false);
@@ -181,21 +171,20 @@ const Users = () => {
   };
 
   const handleSave = () => {
-    setSnackbar({ 
-      open: true, 
-      message: 'Usuario guardado correctamente', 
-      severity: 'success' 
+    setSnackbar({
+      open: true,
+      message: 'Usuario guardado correctamente',
+      severity: 'success'
     });
     loadUsers();
   };
 
   const getTabLabel = (tabIndex) => {
     const total = users.length;
-    
-    // Calcular counts basado en los datos actuales
+
     const activeCount = users.filter(user => user.requestsCount > 0).length;
     const inactiveCount = users.filter(user => user.requestsCount === 0).length;
-    
+
     switch (tabIndex) {
       case 0: return `Todos (${total})`;
       case 1: return `Activos (${activeCount})`;
@@ -204,20 +193,19 @@ const Users = () => {
     }
   };
 
-  // Función para probar conexión específica de usuarios
   const testUsersConnection = async () => {
     try {
       const response = await adminService.getAllUsers();
-      setSnackbar({ 
-        open: true, 
-        message: `Conexión exitosa. ${response.data.length} usuarios encontrados.`, 
-        severity: 'success' 
+      setSnackbar({
+        open: true,
+        message: `Conexión exitosa. ${response.data.length} usuarios encontrados.`,
+        severity: 'success'
       });
     } catch (error) {
-      setSnackbar({ 
-        open: true, 
-        message: `Error de conexión: ${error.message}`, 
-        severity: 'error' 
+      setSnackbar({
+        open: true,
+        message: `Error de conexión: ${error.message}`,
+        severity: 'error'
       });
     }
   };
@@ -235,26 +223,26 @@ const Users = () => {
               {filteredUsers.length} usuarios encontrados de {users.length} totales
             </Typography>
           </Box>
-          
+
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               startIcon={<Refresh />}
               onClick={() => loadUsers()}
               disabled={loading}
             >
               Actualizar
             </Button>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               color="secondary"
               onClick={testUsersConnection}
               disabled={loading}
             >
               Probar Conexión
             </Button>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               startIcon={<Add />}
               onClick={() => setModalOpen(true)}
             >
@@ -289,16 +277,16 @@ const Users = () => {
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
             <Box sx={{ mt: 1 }}>
-              <Button 
-                variant="outlined" 
-                size="small" 
+              <Button
+                variant="outlined"
+                size="small"
                 onClick={() => loadUsers()}
               >
                 Reintentar
               </Button>
-              <Button 
-                variant="outlined" 
-                size="small" 
+              <Button
+                variant="outlined"
+                size="small"
                 onClick={testUsersConnection}
                 sx={{ ml: 1 }}
               >
@@ -359,8 +347,8 @@ const Users = () => {
           autoHideDuration={6000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
         >
-          <Alert 
-            onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
             severity={snackbar.severity}
           >
             {snackbar.message}
